@@ -38,7 +38,9 @@ class Specialty extends Model
             return;
         }
 
-        $query->whereRaw("f_unaccent(name) ILIKE '%' || f_unaccent(?) || '%'", [$term])
+        $operator = $query->getConnection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+
+        $query->whereRaw("f_unaccent(name) {$operator} '%' || f_unaccent(?) || '%'", [$term])
             ->orderBy('name');
     }
 }

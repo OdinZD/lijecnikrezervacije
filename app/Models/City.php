@@ -46,7 +46,11 @@ class City extends Model
             return;
         }
 
-        $query->whereRaw("f_unaccent(name) ILIKE f_unaccent(?) || '%'", [$term])
+        // SQLite's LIKE is case-insensitive for ASCII (good enough once f_unaccent
+        // strips diacritics); Postgres needs ILIKE and keeps its GIN trgm index.
+        $operator = $query->getConnection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+
+        $query->whereRaw("f_unaccent(name) {$operator} f_unaccent(?) || '%'", [$term])
             ->orderBy('name');
     }
 }

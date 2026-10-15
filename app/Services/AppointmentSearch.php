@@ -32,14 +32,17 @@ class AppointmentSearch
         $dLat = Haversine::latDelta($radiusKm);
         $dLng = Haversine::lngDelta($radiusKm, $origin->lat);
 
+        // Bind the window as datetimes (portable) instead of Postgres `now() + interval`.
+        $from = now();
+        $to = now()->copy()->addDays($days);
+
         return DB::table('clinics')
             ->join('doctors', 'doctors.clinic_id', '=', 'clinics.id')
             ->join('doctor_specialty', 'doctor_specialty.doctor_id', '=', 'doctors.id')
-            ->join('slots', function ($join) use ($days) {
+            ->join('slots', function ($join) use ($from, $to) {
                 $join->on('slots.doctor_id', '=', 'doctors.id')
                     ->where('slots.status', SlotStatus::Free->value)
-                    // (int) cast makes the inlined interval injection-safe.
-                    ->whereRaw("slots.start_time BETWEEN now() AND now() + interval '".(int) $days." days'");
+                    ->whereBetween('slots.start_time', [$from, $to]);
             })
             ->where('doctor_specialty.specialty_id', $specialtyId)
             ->where('clinics.is_active', true)
@@ -49,10 +52,12 @@ class AppointmentSearch
             // ... then the exact great-circle cut.
             ->whereRaw("({$distance}) <= ?", [$radiusKm])
             ->groupBy('clinics.id', 'doctors.id')
+            // No round()/::numeric here — the Blade formats distance_km to 1 decimal,
+            // and 2-arg round + ::numeric are Postgres-only.
             ->selectRaw(
                 'clinics.id as clinic_id, clinics.name as clinic, '
                 .'doctors.id as doctor_id, doctors.name as doctor, '
-                ."round(({$distance})::numeric, 1) as distance_km, "
+                ."({$distance}) as distance_km, "
                 .'min(slots.start_time) as earliest'
             )
             ->orderBy('earliest')
