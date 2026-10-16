@@ -194,14 +194,15 @@ class ClinicSeeder extends Seeder
     }
 
     /**
-     * Weekday 08:00–14:30 half-hour slots for the next 14 days, ~45% free.
+     * Weekday 08:00–14:30 half-hour slots for the next 45 days, ~45% free.
+     * The longer horizon keeps the hosted demo populated for ~6 weeks.
      */
     private function seedSlots(int $clinicId, int $doctorId): void
     {
         $now = Carbon::now();
         $rows = [];
 
-        for ($day = 0; $day < 14; $day++) {
+        for ($day = 0; $day < 45; $day++) {
             $date = $now->copy()->addDays($day);
             if ($date->isWeekend()) {
                 continue;
